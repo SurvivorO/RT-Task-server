@@ -1,10 +1,11 @@
-import {createTask, readTasks, updateTask, deleteTask} from "../controllers/taskController.js"
+import {createTask, readTasks, updateTask, deleteTask, readTaskById} from "../controllers/taskController.js"
 import express from "express"
 
 const taskRouter = express.Router()
 
 taskRouter.post('/', createTask)
 taskRouter.get('/', readTasks)
+taskRouter.get('/:id', readTaskById)
 taskRouter.patch('/:id', updateTask)
 taskRouter.delete('/:id', deleteTask)
 
