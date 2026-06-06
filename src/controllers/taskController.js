@@ -5,14 +5,13 @@ const createTask = async (req, res) => {
     const data = req.body
     
     try{
-        await Task.create({
+        const task = await Task.create({
             status: data.status,
             description: data.description,
-            assignedTo: new mongoose.Types.ObjectId(data.assignedTo),
+            assignedTo: data.assignedTo,
             dueDate: data.dueDate,
         })
-
-        res.status(201).json({message: "Task created successfully"})
+        res.status(201).json(task)
     }
     catch(err) {
         console.error("Error creating task: ", err)
@@ -22,8 +21,16 @@ const createTask = async (req, res) => {
 
 const readTasks = async (req, res) => {
     try {
-        const tasks = await Task.find()
-        res.status(200).json(tasks)
+        const { ids } = req.query
+        if(ids) {
+            const idArray = ids.split(",")
+            const tasks = await Task.find({ _id: { $in: idArray } })
+            return res.status(200).json(tasks)
+        }
+
+
+        const allTasks = await Task.find()
+        res.status(200).json(allTasks)
         
     }catch (err) {
         console.error("Error reading tasks: ", err)
@@ -77,5 +84,20 @@ const deleteTask = async (req, res) => {
     }
 }
 
+const readTaskById = async (req, res) => {
+    const id = req.params.id
 
-export {createTask, readTasks, updateTask, deleteTask}
+    try {
+        const task = await Task.findById(id)
+
+        if(!task) {
+            return res.status(404).json({error: "Task not found"})
+        }
+        res.status(200).json(task)
+    }catch(err) {
+        console.error("Error reading task: ", err)
+        res.status(500).json({error: "Failed to read task"})
+    }
+}
+
+export {createTask, readTasks, updateTask, deleteTask, readTaskById}
