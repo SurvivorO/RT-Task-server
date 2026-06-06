@@ -17,6 +17,8 @@ jobs:
       INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
       MONGO_URI: ${{ secrets.MONGO_URI }}
       MONGO_DB_NAME: ${{ secrets.MONGO_DB_NAME }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN }}
 
     steps:
     - name: Checkout repository code
