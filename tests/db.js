@@ -4,7 +4,7 @@ import MongoMemoryServer from "mongodb-memory-server"
 let mongoServer
 
 const connectDB = async () => {
-    mongoServer = await MongoMemoryServer.create()
+    mongoServer = await MongoMemoryServer.MongoMemoryServer.create()
     const uri = mongoServer.getUri()
 
     await mongoose.connect(uri)
