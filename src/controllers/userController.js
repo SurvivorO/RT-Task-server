@@ -1,4 +1,7 @@
 import User from "../models/user.model.js"
+import "dotenv/config"
+import jwt from "jsonwebtoken"
+import bcrypt from "bcryptjs"
 
 const createUser = async (req, res) => {
     const data = req.body
@@ -8,13 +11,13 @@ const createUser = async (req, res) => {
             email: data.email,
             password: data.password,
             displayName: data.displayName
-    })
+        })
 
-    res.status(201).json({
-        email: user.email,
-        displayName: user.displayName,
-        _id: user._id
-    })
+        res.status(201).json({
+            email: user.email,
+            displayName: user.displayName,
+            _id: user._id
+        })
     }catch(err) {
         console.error("Error creating user: ", err)
         if(err.name === "ValidationError"){
@@ -95,4 +98,35 @@ const deleteUser = async (req, res) => {
     }
 }
 
-export {createUser, readUsers, updateUser, deleteUser, readUserById}
+const loginUser = async (req, res) => {
+
+    const data = req.body
+    if(!data.email || !data.password) {
+        return res.status(400).json({error: "Email and password are required"})
+    }
+
+    try {
+        const user = await User.findOne({ email: data.email })
+        if(!user) {
+            return res.status(401).json({error: "Invalid credentials"})
+        }
+
+        const isMatch = await bcrypt.compare(data.password, user.password)
+        if(!isMatch) {
+            return res.status(401).json({error: "Invalid credentials"})
+        }
+
+        const token = jwt.sign(
+            { id: user._id },
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRES_IN || "24h" }
+        )
+
+        res.status(200).json({ token })
+
+    }catch(err) {
+        console.error("Error during login: ", err)
+        return res.status(500).json({error: "Internal server error"})
+    }
+}
+export {createUser, readUsers, updateUser, deleteUser, readUserById, loginUser}
