@@ -1,9 +1,14 @@
 import express from "express"
 import requireApikey from "./middlewares/requireApikey.js"
+import taskRouter from "./routes/taskRoute.js"
+import userRouter from "./routes/userRoute.js"
 
 const app = express()
 
 app.use(express.json())
+
+app.use('/tasks', taskRouter)
+app.use('/users', userRouter)
 
 app.get('/health', requireApikey, (req, res) => {
     res.status(200)
