@@ -5,8 +5,7 @@ const app = express()
 
 app.get('/health', requireApikey, (req, res) => {
     res.status(200)
-    res.json({status: "healthy"})
-    res.send("OK")
+    res.json({status: "healthy"})    
 })
 
 app.get('/', (req, res) => {
