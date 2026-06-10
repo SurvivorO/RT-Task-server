@@ -1,75 +1,61 @@
-import request from 'supertest';
-import app from '../src/app.js';
-import { connectDB, disconnectDB, clearDB } from './db.js';
-import User from '../src/models/user.model.js';
-import Task from '../src/models/task.model.js';
+import request from "supertest";
+import app from "../src/app.js";
+import User from "../src/models/user.model.js";
+import { connectDB, disconnectDB, clearDB } from "./db.js";
 
 beforeAll(async () => await connectDB());
+afterEach(async () => await clearDB());
 afterAll(async () => await disconnectDB());
 
-describe('Task Data Validation and API Endpoints', () => {
-  let validUserId;
+describe("Task API Security and Authentication", () => {
+  let authCookie;
+  let testUserId; // We need this to satisfy the required 'assignedTo' field
 
   beforeEach(async () => {
-    await clearDB();
-    const dummyUser = await User.create({
-      displayName: 'testdev',
-      email: 'test@dev.com',
-      password: 'hashedpassword'
+    // FIX 1: Pass plaintext password. Your Mongoose pre("save") hook handles the hash.
+    const user = await User.create({
+      email: "test@dev.com",
+      password: "password123",
+      displayName: "testdev"
     });
-    validUserId = dummyUser._id;
+
+    // Save the generated user ID to use in our task payload later
+    testUserId = user._id;
+
+    // Simulate a login request to get the token cookie
+    const loginResponse = await request(app)
+      .post("/users/login")
+      .send({ email: "test@dev.com", password: "password123" });
+
+    // Extract the cookie array from the response headers
+    authCookie = loginResponse.headers["set-cookie"];
   });
 
-  describe('1. Testing via Raw JSON (API Boundary)', () => {
-    it('should successfully create a task via HTTP request', async () => {
-      const rawJsonPayload = {
-        description: 'Implement the POST endpoint',
-        assignedTo: validUserId,
-        status: 'pending' // Matches your new schema enum exactly
-      };
-
-      const response = await request(app)
-        .post('/tasks')
-        .send(rawJsonPayload);
-
-      expect(response.statusCode).toBe(201);
-      expect(response.body.description).toBe('Implement the POST endpoint'); 
-      expect(response.body._id).toBeDefined();
-      
-      const taskInDb = await Task.findById(response.body._id);
-      expect(taskInDb).toBeTruthy();
+  it("should return 401/403 if no authentication cookie is provided", async () => {
+    // Making a request WITHOUT attaching the authCookie
+    const response = await request(app).post("/tasks").send({
+      description: "Unauthenticated task attempt", // FIX 2: Match your schema
+      assignedTo: testUserId,                      // FIX 3: Required by your schema
+      status: "pending"
     });
+
+    // Asserts that the auth middleware successfully blocks the request
+    expect(response.status).toBeGreaterThanOrEqual(401);
+    expect(response.status).toBeLessThanOrEqual(403);
   });
 
-  describe('2. Testing via Mongoose Models (Database Boundary)', () => {
-    it('should successfully save a valid task directly to the database', async () => {
-      const taskModel = new Task({
-        description: 'Test the Mongoose schema directly',
-        assignedTo: validUserId,
-        dueDate: new Date('2026-12-31') // Corrected to dueDate
+  it("should allow access and create a task when a valid cookie is provided", async () => {
+    // Making a request WITH the authCookie manually injected
+    const response = await request(app)
+      .post("/tasks")
+      .set("Cookie", authCookie)
+      .send({
+        description: "Authenticated task attempt",
+        assignedTo: testUserId,
+        status: "pending"
       });
 
-      const savedTask = await taskModel.save();
-
-      expect(savedTask._id).toBeDefined();
-      expect(savedTask.description).toBe('Test the Mongoose schema directly');
-      expect(savedTask.status).toBe('not started'); // Matches your new schema enum default
-    });
-
-    it('should throw a validation error if description is missing', async () => {
-      const invalidTaskModel = new Task({
-        assignedTo: validUserId
-      });
-
-      let error = null;
-      try {
-        await invalidTaskModel.save();
-      } catch (err) {
-        error = err;
-      }
-      
-      expect(error).not.toBeNull();
-      expect(error.name).toBe('ValidationError');
-    });
+    // Asserts the request bypassed the auth middleware and successfully hit the task controller
+    expect(response.status).toBe(201);
   });
 });

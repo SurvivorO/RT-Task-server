@@ -5,11 +5,11 @@ import User from '../src/models/user.model.js';
 import jwt from 'jsonwebtoken';
 
 beforeAll(async () => await connectDB());
+afterEach(async () => await clearDB());
 afterAll(async () => await disconnectDB());
 
 describe('Authentication Endpoints', () => {
   beforeEach(async () => {
-    await clearDB();
     // Pre-populate a user for login tests
     await request(app).post('/users').send({
       email: 'existing@dev.com',
@@ -18,7 +18,7 @@ describe('Authentication Endpoints', () => {
     });
   });
 
-  describe('POST /users/', () => {
+  describe('POST /users', () => {
     it('should register a new user and return 201 without the password', async () => {
       const response = await request(app).post('/users').send({
         email: 'new@dev.com',
@@ -50,10 +50,20 @@ describe('Authentication Endpoints', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(response.body.token).toBeDefined();
 
-      // Verify the token payload contains the user ID
-      const decoded = jwt.decode(response.body.token);
+      // Extract the cookie array from the response headers
+      const cookies = response.headers["set-cookie"];
+
+      // Assert the cookie exists and contains your token name
+      expect(cookies).toBeDefined();
+      expect(cookies[0]).toContain("token=");
+
+      // FIX: Extract the JWT value from the raw cookie string before decoding
+      const rawCookieString = cookies[0];
+      const tokenValue = rawCookieString.split(";")[0].split("=")[1];
+
+      const decoded = jwt.decode(tokenValue);
+      expect(decoded).not.toBeNull();
       expect(decoded.id).toBeDefined();
     });
 
@@ -69,7 +79,7 @@ describe('Authentication Endpoints', () => {
 
     it('should return 401 for non-existent email', async () => {
       const response = await request(app).post('/users/login').send({
-        email: 'ghost@dev.com',
+        email: 'nobody@dev.com',
         password: 'password123'
       });
 
